@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz sur la Martinique</title>
+    <style>
+        /* Styles CSS */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            padding: 20px;
+            background-color: #f0f2f5;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .categories {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .category-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: transform 0.3s;
+        }
+
+        .category-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .quiz-container, .results-container {
+            display: none;
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .question {
+            font-size: 1.2em;
+            margin-bottom: 20px;
+        }
+
+        .options {
+            display: grid;
+            gap: 10px;
+        }
+
+        .option {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            background: #f0f2f5;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .option:hover {
+            background: #e4e6e9;
+        }
+
+        .option.correct {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .option.incorrect {
+            background: #f44336;
+            color: white;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 10px;
+            background: #f0f2f5;
+            border-radius: 5px;
+            margin: 20px 0;
+            overflow: hidden;
+        }
+
+        .progress {
+            height: 100%;
+            background: #4CAF50;
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        .timer {
+            text-align: center;
+            font-size: 1.2em;
+            margin: 10px 0;
+        }
+
+        .explanation {
+            margin-top: 20px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            display: none;
+        }
+
+        #nextButton {
+            display: block;
+            margin: 20px auto;
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        #nextButton:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px 20px;
+            border-radius: 5px;
+            color: white;
+            background: #333;
+            display: none;
+        }
+
+        .toast.error {
+            background: #f44336;
+        }
+
+        .toast.success {
+            background: #4CAF50;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="categories">
+            <div class="category-card" data-category="histoire">
+                <h2>Histoire</h2>
+                <p>Meilleur score: <span class="best-score" id="best-histoire">0</span></p>
+            </div>
+            <div class="category-card" data-category="culture">
+                <h2>Culture</h2>
+                <p>Meilleur score: <span class="best-score" id="best-culture">0</span></p>
+            </div>
+            <div class="category-card" data-category="traditions">
+                <h2>Traditions</h2>
+                <p>Meilleur score: <span class="best-score" id="best-traditions">0</span></p>
+            </div>
+            <div class="category-card" data-category="geographie">
+                <h2>Géographie</h2>
+                <p>Meilleur score: <span class="best-score" id="best-geographie">0</span></p>
+            </div>
+        </div>
+
+        <div class="quiz-container">
+            <div class="timer">Temps restant: <span id="time">30</span>s</div>
+            <div class="progress-bar">
+                <div class="progress"></div>
+            </div>
+            <div class="question" id="question"></div>
+            <div class="options" id="options"></div>
+            <div class="explanation" id="explanation"></div>
+            <button id="nextButton" disabled>Question suivante</button>
+            <div class="score">Score: <span id="score">0</span></div>
+        </div>
+
+        <div class="results-container">
+            <h2>Résultats</h2>
+            <p>Score final: <span id="final-score">0</span></p>
+            <p>Temps total: <span id="total-time">0</span> secondes</p>
+            <button onclick="showCategories()">Retour aux catégories</button>
+        </div>
+
+        <div class="toast" id="toast"></div>
+    </div>
+
+    <script>
+        // Utilitaire UI
+        const UI = {
+            showToast: function(message, type = 'info') {
+                const toast = document.getElementById('toast');
+                toast.textContent = message;
+                toast.className = 'toast ' + type;
+                toast.style.display = 'block';
+                setTimeout(() => {
+                    toast.style.display = 'none';
+                }, 3000);
+            },
+
+            updateTimer: function() {
+                document.getElementById('time').textContent = state.timeLeft;
+            },
+
+            updateProgress: function() {
+                const progress = document.querySelector('.progress');
+                const percentage = (state.currentQuestionIndex / quizData[state.currentCategory].length) * 100;
+                progress.style.width = percentage + '%';
+            }
+        };
+
+        // Données du quiz
+        const quizData = {
+            histoire: [
+                {
+                    question: "Quand la Martinique est-elle devenue un département français ?",
+                    options: ["1946", "1935", "1848", "1902"],
+                    correctAnswer: 0,
+                    explanation: "La Martinique est devenue un département français le 19 mars 1946."
+                },
+                {
+                    question: "Qui était Victor Schœlcher ?",
+                    options: ["Un pirate", "Un abolitionniste", "Un gouverneur", "Un planteur"],
+                    correctAnswer: 1,
+                    explanation: "Victor Schœlcher était un homme politique français qui a œuvré pour l'abolition de l'esclavage."
+                }
+            ],
+            culture: [
+                {
+                    question: "Quel est le nom de la danse traditionnelle martiniquaise ?",
+                    options: ["Zouk", "Biguine", "Salsa", "Gwoka"],
+                    correctAnswer: 1,
+                    explanation: "La biguine est une danse traditionnelle martiniquaise."
+                }
+            ],
+            traditions: [
+                {
+                    question: "Quel est le plat traditionnel martiniquais à base de morue ?",
+                    options: ["Accras", "Colombo", "Féroce", "Matoutou"],
+                    correctAnswer: 2,
+                    explanation: "Le féroce est un plat traditionnel à base de morue et d'avocat."
+                }
+            ],
+            geographie: [
+                {
+                    question: "Quelle est la plus haute montagne de la Martinique ?",
+                    options: ["Mont Pelée", "Pitons du Carbet", "Morne Larcher", "Montagne du Vauclin"],
+                    correctAnswer: 0,
+                    explanation: "Le Mont Pelée culmine à 1397 mètres d'altitude."
+                }
+            ]
+        };
+
+        // État de l'application
+        const state = {
+            currentCategory: '',
+            currentQuestionIndex: 0,
+            score: 0,
+            hasAnswered: false,
+            timer: null,
+            timeLeft: 30,
+            bestScores: {
+                histoire: 0,
+                culture: 0,
+                traditions: 0,
+                geographie: 0
+            }
+        };
+
+        // Initialisation
+        function showCategories() {
+            document.querySelector('.categories').style.display = 'grid';
+            document.querySelector('.quiz-container').style.display = 'none';
+            document.querySelector('.results-container').style.display = 'none';
+        }
+
+        function startQuiz(category) {
+            state.currentCategory = category;
+            state.currentQuestionIndex = 0;
+            state.score = 0;
+            state.timeLeft = 30;
+            document.querySelector('.categories').style.display = 'none';
+            document.querySelector('.quiz-container').style.display = 'block';
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            const questionData = quizData[state.currentCategory][state.currentQuestionIndex];
+            document.getElementById('question').textContent = questionData.question;
+            const optionsContainer = document.getElementById('options');
+            optionsContainer.innerHTML = '';
+            questionData.options.forEach((option, index) => {
+                const button = document.createElement('button');
+                button.textContent = option;
+                button.className = 'option';
+                button.onclick = () => selectAnswer(index);
+                optionsContainer.appendChild(button);
+            });
+            document.getElementById('nextButton').disabled = true;
+            state.hasAnswered = false;
+            startTimer();
+            UI.updateProgress();
+        }
+
+        function selectAnswer(index) {
+            if (state.hasAnswered) return;
+            const questionData = quizData[state.currentCategory][state.currentQuestionIndex];
+            const options = document.getElementsByClassName('option');
+            if (index === questionData.correctAnswer) {
+                options[index].classList.add('correct');
+                state.score++;
+                UI.showToast('Bonne réponse !', 'success');
+            } else {
+                options[index].classList.add('incorrect');
+                options[questionData.correctAnswer].classList.add('correct');
+                UI.showToast('Mauvaise réponse !', 'error');
+            }
+            state.hasAnswered = true;
+            clearInterval(state.timer);
+            document.getElementById('nextButton').disabled = false;
+            document.getElementById('explanation').style.display = 'block';
+            document.getElementById('explanation').textContent = questionData.explanation;
+        }
+
+        function startTimer() {
+            state.timeLeft = 30;
+            UI.updateTimer();
+            state.timer = setInterval(() => {
+                state.timeLeft--;
+                UI.updateTimer();
+                if (state.timeLeft <= 0) {
+                    clearInterval(state.timer);
+                    selectAnswer(-1); // Aucune réponse sélectionnée
+                }
+            }, 1000);
+        }
+
+        function nextQuestion() {
+            document.getElementById('explanation').style.display = 'none';
+            state.currentQuestionIndex++;
+            if (state.currentQuestionIndex < quizData[state.currentCategory].length) {
+                loadQuestion();
+            } else {
+                endQuiz();
+            }
+        }
+
+        function endQuiz() {
+            document.querySelector('.quiz-container').style.display = 'none';
+            document.querySelector('.results-container').style.display = 'block';
+            document.getElementById('final-score').textContent = state.score;
+            document.getElementById('total-time').textContent = (30 * state.currentQuestionIndex) - state.timeLeft;
+            updateBestScore();
+        }
+
+        function updateBestScore() {
+            const category = state.currentCategory;
+            if (state.score > state.bestScores[category]) {
+                state.bestScores[category] = state.score;
+                document.getElementById('best-' + category).textContent = state.score;
+                UI.showToast('Nouveau meilleur score!', 'success');
+            }
+        }
+
+        document.querySelectorAll('.category-card').forEach(card => {
+            card.onclick = () => startQuiz(card.getAttribute('data-category'));
+        });
+
+        document.getElementById('nextButton').onclick = nextQuestion;
+
+        showCategories();
+    </script>
+</body>
+</html>
